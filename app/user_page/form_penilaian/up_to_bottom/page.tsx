@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import StarRating from "@/components/StarRating";
@@ -14,7 +14,7 @@ import {
   EvaluationScore 
 } from "@/services/evaluationService";
 
-export default function UpToBottomForm() {
+function UpToBottomFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const evaluateeId = parseInt(searchParams.get("evaluatee_id") || "0");
@@ -255,5 +255,19 @@ export default function UpToBottomForm() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function UpToBottomForm() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#cdcdcd] flex items-center justify-center">
+          <p className="text-xl text-[#0b2f63]">Loading...</p>
+        </div>
+      }
+    >
+      <UpToBottomFormContent />
+    </Suspense>
   );
 }
