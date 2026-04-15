@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model audit_logs {
+  id          Int       @id @default(autoincrement())
+  actor_id    Int?
+  action      String    @db.VarChar(100)
+  entity_type String    @db.VarChar(50)
+  entity_id   Int
+  before_data Json?     @db.Json
+  after_data  Json?     @db.Json
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  members     members?  @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model divisions {
+  id            Int             @id @default(autoincrement())
+  name          String          @unique @db.VarChar(100)
+  kpis          kpis[]
+  members       members[]
+  sub_divisions sub_divisions[]
+}
+
+model evaluation_periods {
+  id                 Int                  @id @default(autoincrement())
+  name               String               @db.VarChar(100)
+  quartal            Int
+  is_active          Boolean?             @default(true)
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  evaluation_results evaluation_results[]
+  evaluations        evaluations[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model evaluation_policies {
+  id                                                 Int       @id @default(autoincrement())
+  evaluator_role_id                                  Int
+  evaluatee_role_id                                  Int
+  division_scope                                     String    @db.VarChar(30)
+  priority                                           Int?      @default(1)
+  is_active                                          Boolean?  @default(true)
+  created_at                                         DateTime? @default(now()) @db.Timestamp(6)
+  roles_evaluation_policies_evaluatee_role_idToroles roles     @relation("evaluation_policies_evaluatee_role_idToroles", fields: [evaluatee_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles_evaluation_policies_evaluator_role_idToroles roles     @relation("evaluation_policies_evaluator_role_idToroles", fields: [evaluator_role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model evaluation_results {
+  id                 Int                 @id @default(autoincrement())
+  member_id          Int
+  period_id          Int?
+  total_score        Float?              @default(0)
+  average_score      Float?              @default(0)
+  ranking            Int?
+  created_at         DateTime?           @default(now()) @db.Timestamp(6)
+  members            members             @relation(fields: [member_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  evaluation_periods evaluation_periods? @relation(fields: [period_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model evaluation_scores {
+  id            Int         @id @default(autoincrement())
+  evaluation_id Int
+  kpi_id        Int
+  score         Int
+  notes         String?
+  created_at    DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at    DateTime?   @default(now()) @db.Timestamp(6)
+  evaluations   evaluations @relation(fields: [evaluation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model evaluations {
+  id                                        Int                 @id @default(autoincrement())
+  evaluator_id                              Int
+  evaluatee_id                              Int
+  period_id                                 Int?
+  submitted_at                              DateTime?           @db.Timestamp(6)
+  created_at                                DateTime?           @default(now()) @db.Timestamp(6)
+  evaluation_scores                         evaluation_scores[]
+  members_evaluations_evaluatee_idTomembers members             @relation("evaluations_evaluatee_idTomembers", fields: [evaluatee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  members_evaluations_evaluator_idTomembers members             @relation("evaluations_evaluator_idTomembers", fields: [evaluator_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  evaluation_periods                        evaluation_periods? @relation(fields: [period_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([evaluator_id, evaluatee_id, period_id], map: "unique_evaluation")
+}
+
+model kpis {
+  id             Int        @id @default(autoincrement())
+  indicator_name String     @db.VarChar(150)
+  definition     String
+  type           kpi_type
+  division_id    Int?
+  weight         Int?       @default(1)
+  max_score      Int?       @default(6)
+  version        Int?       @default(1)
+  is_active      Boolean?   @default(true)
+  created_at     DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?  @default(now()) @db.Timestamp(6)
+  divisions      divisions? @relation(fields: [division_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model members {
+  id                                            Int                  @id @default(autoincrement())
+  name                                          String               @db.VarChar(100)
+  email                                         String               @unique @db.VarChar(150)
+  password                                      String               @db.VarChar(255)
+  division_id                                   Int?
+  sub_division_id                               Int?
+  remember_token                                String?              @db.VarChar(100)
+  created_at                                    DateTime?            @default(now()) @db.Timestamp(6)
+  updated_at                                    DateTime?            @default(now()) @db.Timestamp(6)
+  role_id                                       Int?
+  audit_logs                                    audit_logs[]
+  evaluation_results                            evaluation_results[]
+  evaluations_evaluations_evaluatee_idTomembers evaluations[]        @relation("evaluations_evaluatee_idTomembers")
+  evaluations_evaluations_evaluator_idTomembers evaluations[]        @relation("evaluations_evaluator_idTomembers")
+  divisions                                     divisions?           @relation(fields: [division_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  roles                                         roles?               @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sub_divisions                                 sub_divisions?       @relation(fields: [sub_division_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model roles {
+  id                                                               Int                   @id @default(autoincrement())
+  name                                                             String                @unique @db.VarChar(50)
+  evaluation_policies_evaluation_policies_evaluatee_role_idToroles evaluation_policies[] @relation("evaluation_policies_evaluatee_role_idToroles")
+  evaluation_policies_evaluation_policies_evaluator_role_idToroles evaluation_policies[] @relation("evaluation_policies_evaluator_role_idToroles")
+  members                                                          members[]
+}
+
+model sub_divisions {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  division_id Int
+  members     members[]
+  divisions   divisions @relation(fields: [division_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+enum kpi_type {
+  UPWARD
+  DOWNWARD_GENERAL
+  DOWNWARD_DEPARTMENT
+}
