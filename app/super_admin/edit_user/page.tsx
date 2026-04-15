@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 
 type InputProps = {
   label: string;
@@ -66,7 +67,13 @@ const Header = () => {
   return (
     <header className="w-full bg-gradient-to-b from-[#031b3e] to-[#0c326a] text-white px-6 py-4 flex justify-between items-center">
       <div className="flex items-center gap-4">
-        <img src="/grandlogo-putih-1.png" className="w-24" />
+        <Image
+          src="/sxc_logo.png"
+          alt="StudentxCEOs logo"
+          width={96}
+          height={32}
+          className="w-24 h-auto"
+        />
         <h1 className="font-bold text-lg md:text-xl">
           Performance Appraisal Super Admin
         </h1>
@@ -92,9 +99,12 @@ const EditUserPage: React.FC = () => {
             
             {/* IMAGE */}
             <div className="flex justify-center items-center w-full lg:w-1/2">
-              <img
-                src="/unsplash:nf0rrrr4z0e.png"
-                className="w-64 md:w-80 rounded-2xl"
+              <Image
+                src="/sxc_logo.png"
+                alt="Edit user illustration"
+                width={320}
+                height={320}
+                className="w-64 md:w-80 rounded-2xl h-auto"
               />
             </div>
 

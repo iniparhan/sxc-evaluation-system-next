@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 
 type User = {
   id: number;
@@ -14,14 +15,14 @@ const users: User[] = [
     name: "Irfan",
     role: "Chief Human Resources Officer",
     division: "Human Resources",
-    image: "/user.png",
+    image: "/sxc_logo.png",
   },
   {
     id: 2,
     name: "Irfan",
     role: "Chief Human Resources Officer",
     division: "Human Resources",
-    image: "/user.png",
+    image: "/sxc_logo.png",
   },
 ];
 
@@ -55,7 +56,13 @@ const Header = () => {
   return (
     <header className="w-full bg-gradient-to-b from-[#031b3e] to-[#0c326a] text-white flex items-center justify-between px-6 py-4">
       <div className="flex items-center gap-4">
-        <img src="/logo.png" alt="logo" className="w-24" />
+        <Image
+          src="/sxc_logo.png"
+          alt="StudentxCEOs logo"
+          width={96}
+          height={32}
+          className="w-24 h-auto"
+        />
         <h1 className="font-bold text-lg md:text-xl">
           Performance Appraisal Super Admin
         </h1>
@@ -68,9 +75,11 @@ const UserCard = ({ user }: { user: User }) => {
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white rounded-xl shadow-md p-4 gap-4">
       <div className="flex items-center gap-4">
-        <img
+        <Image
           src={user.image}
           alt={user.name}
+          width={64}
+          height={64}
           className="w-16 h-16 rounded-lg object-cover"
         />
         <div>
