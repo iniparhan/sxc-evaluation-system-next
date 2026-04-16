@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { getCurrentUser, UserSession } from "@/services/authService";
 
 interface Stats {
   totalMembers: number;
@@ -14,28 +13,23 @@ interface Stats {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<UserSession | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
+      const res = await fetch("/api/admin/stats");
+
+      if (res.status === 401) {
         router.push("/login");
         return;
       }
 
-      // Check if user is admin (role_id: 1=Super Admin, 2=Admin)
-      if (!currentUser.role_id || currentUser.role_id > 2) {
+      if (res.status === 403) {
         router.push("/user_page/officer_list");
         return;
       }
 
-      setUser(currentUser);
-
-      // Fetch dashboard stats
-      const res = await fetch("/api/admin/stats");
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -50,6 +44,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    router.prefetch("/admin/members");
+  }, [router]);
 
   if (isLoading) {
     return (

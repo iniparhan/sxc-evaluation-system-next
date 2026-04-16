@@ -1,10 +1,16 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import StarRating from "@/components/StarRating";
 import { getCurrentUser } from "@/services/authService";
+import {
+  clearEvaluationDraft,
+  getEvaluationDraftKey,
+  readEvaluationDraft,
+  writeEvaluationDraft,
+} from "@/lib/evaluationDraft";
 import { 
   getOrCreateEvaluation, 
   getEvaluationDetail, 
@@ -27,6 +33,12 @@ function BottomToUpFormContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDraftRestored, setIsDraftRestored] = useState(false);
+
+  const draftKey = useMemo(() => {
+    if (!evaluationId || evaluateeId <= 0) return null;
+    return getEvaluationDraftKey("bottom_to_up", evaluateeId, evaluationId);
+  }, [evaluateeId, evaluationId]);
 
   const loadEvaluation = useCallback(async () => {
     try {
@@ -57,12 +69,23 @@ function BottomToUpFormContent() {
           detail.scores.forEach((score: EvaluationScore) => {
             scoresMap[score.kpi_id] = score.score;
           });
-          setScores(scoresMap);
           const existingFeedback =
             (detail as unknown as { global_feedback?: string | null }).global_feedback ||
             detail.scores.find((score) => score.notes?.trim())?.notes ||
             "";
-          setFeedback(existingFeedback);
+
+          const localDraft = readEvaluationDraft(
+            getEvaluationDraftKey("bottom_to_up", evaluateeId, evaluation.id)
+          );
+          if (localDraft) {
+            setScores({ ...scoresMap, ...localDraft.scores });
+            setFeedback(localDraft.feedback || existingFeedback);
+            setIsDraftRestored(true);
+          } else {
+            setScores(scoresMap);
+            setFeedback(existingFeedback);
+            setIsDraftRestored(false);
+          }
           return;
         }
       }
@@ -77,10 +100,20 @@ function BottomToUpFormContent() {
       // Load evaluation detail with KPIs
       const detail = await getEvaluationDetail(evaluation.id, evaluateeId);
       setKpis(detail.kpis);
-      
-      // Initialize empty scores
-      setScores({});
-      setFeedback("");
+
+      const localDraft = readEvaluationDraft(
+        getEvaluationDraftKey("bottom_to_up", evaluateeId, evaluation.id)
+      );
+      if (localDraft) {
+        setScores(localDraft.scores || {});
+        setFeedback(localDraft.feedback || "");
+        setIsDraftRestored(true);
+      } else {
+        // Initialize empty scores
+        setScores({});
+        setFeedback("");
+        setIsDraftRestored(false);
+      }
     } catch (error) {
       console.error("Error loading evaluation:", error);
       router.push("/user_page/officer_list");
@@ -92,6 +125,19 @@ function BottomToUpFormContent() {
   useEffect(() => {
     loadEvaluation();
   }, [loadEvaluation]);
+
+  useEffect(() => {
+    if (!draftKey || isLoading) return;
+
+    const timer = window.setTimeout(() => {
+      writeEvaluationDraft(draftKey, {
+        scores,
+        feedback,
+      });
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [draftKey, feedback, isLoading, scores]);
 
   const handleScoreChange = (kpiId: number, score: number) => {
     setScores((prev) => ({ ...prev, [kpiId]: score }));
@@ -131,6 +177,9 @@ function BottomToUpFormContent() {
     try {
       await handleSave();
       await submitEvaluation(evaluationId);
+      if (draftKey) {
+        clearEvaluationDraft(draftKey);
+      }
       router.push("/user_page/officer_list");
     } catch (error) {
       console.error("Error submitting evaluation:", error);
@@ -228,6 +277,10 @@ function BottomToUpFormContent() {
               onChange={(e) => setFeedback(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-md resize-none h-28 focus:outline-none focus:ring-2 focus:ring-[#083577]"
             />
+            <p className="text-xs text-gray-500 mt-2">
+              Draft tersimpan otomatis di browser.
+              {isDraftRestored ? " Draft lokal sebelumnya sudah dipulihkan." : ""}
+            </p>
           </div>
 
           <div className="flex gap-4 mt-8">
