@@ -24,12 +24,12 @@ export default function OfficerListPage() {
       }
       setUser(currentUser);
 
-      // Fetch evaluatees
-      const data = await getEvaluatees(currentUser.id);
-      setEvaluatees(data);
+      const [data, status] = await Promise.all([
+        getEvaluatees(currentUser.id),
+        getCompletionStatus(currentUser.id),
+      ]);
 
-      // Fetch completion status
-      const status = await getCompletionStatus(currentUser.id);
+      setEvaluatees(data);
       setCompletionStatus(status);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -42,6 +42,12 @@ export default function OfficerListPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    router.prefetch("/user_page/form_penilaian/up_to_bottom");
+    router.prefetch("/user_page/form_penilaian/bottom_to_up");
+    router.prefetch("/user_page/all_officer_done");
+  }, [router]);
+
   const handleEvaluate = (evaluateeId: number, evaluationId: number | null) => {
     // Determine if evaluating superior or subordinate
     const evaluatee = evaluatees.find((e) => e.id === evaluateeId);
@@ -52,7 +58,7 @@ export default function OfficerListPage() {
 
     // Lower role_id = higher position (1=Super Admin, 6=Officer)
     const isEvaluatingSuperior = evaluatorRoleId > evaluateeRoleId;
-    
+
     const formPath = isEvaluatingSuperior
       ? "/user_page/form_penilaian/bottom_to_up"
       : "/user_page/form_penilaian/up_to_bottom";

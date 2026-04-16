@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface SidebarProps {
   links: {
@@ -11,7 +12,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ links }: SidebarProps) {
-  const router = useRouter();
   const pathname = usePathname();
 
   return (
@@ -25,12 +25,14 @@ export default function Sidebar({ links }: SidebarProps) {
 
       <nav className="flex flex-col gap-2">
         {links.map((link) => {
-          const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
-          
+          const isActive =
+            pathname === link.href || pathname.startsWith(link.href + "/");
+
           return (
-            <button
+            <Link
               key={link.href}
-              onClick={() => router.push(link.href)}
+              href={link.href}
+              prefetch
               className={`text-left px-4 py-3 rounded-lg transition font-medium ${
                 isActive
                   ? "bg-[#083577] text-white"
@@ -39,7 +41,7 @@ export default function Sidebar({ links }: SidebarProps) {
             >
               {link.icon && <span className="mr-2">{link.icon}</span>}
               {link.label}
-            </button>
+            </Link>
           );
         })}
       </nav>

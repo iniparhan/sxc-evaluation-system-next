@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
-import { getCurrentUser, UserSession } from "@/services/authService";
 
 interface Member {
   id: number;
@@ -30,7 +29,6 @@ const adminLinks = [
 
 export default function MembersPage() {
   const router = useRouter();
-  const [user, setUser] = useState<UserSession | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -38,20 +36,18 @@ export default function MembersPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const currentUser = await getCurrentUser();
-        if (!currentUser) {
+        const res = await fetch("/api/admin/members");
+
+        if (res.status === 401) {
           router.push("/login");
           return;
         }
 
-        if (!currentUser.role_id || currentUser.role_id > 2) {
+        if (res.status === 403) {
           router.push("/user_page/officer_list");
           return;
         }
 
-        setUser(currentUser);
-
-        const res = await fetch("/api/admin/members");
         if (res.ok) {
           const data = await res.json();
           setMembers(data);
