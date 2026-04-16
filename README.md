@@ -1,21 +1,6 @@
 # sxc-evaluation-system-next
 
 ## Note
-'''
-Client (browser)
-   ↓
-LoginForm (submit)
-   ↓
-API Route (Next.js server)
-   ↓
-Prisma ORM
-   ↓
-Supabase (PostgreSQL)
-   ↓
-Set HTTP-only cookie
-   ↓
-Client redirect (tanpa pegang token)
-'''
 
 app/
   login/page.tsx          → UI halaman login
@@ -34,6 +19,12 @@ types/
   auth.ts                 → type TypeScript
 
 User and Password
+
+## Next Update?
+
+- *Adding Dashboard view for User or Officer*
+
+- *Add Admin and Super Admin Page*
 
 
 ## Getting Started
