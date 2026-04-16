@@ -36,16 +36,6 @@ types/
 User and Password
 
 
-```bash
--- For Testing
-('Cyka Srihana Humaera', 'cyka@sxcej.com', 'kzqvta', 3, NULL, NULL)
-('Ahmad Farhan QF', 'farhan.hr6@sxcej.com', 'qazwsx', 5, 1, 2)
-('Irfan Akmal Ardianto', 'irfan@sxcej.com', 'qweztx', 4, 1, NULL)
-('Sharliz Mayalpen Zafirah', 'sharliz.hr7@sxcej.com', 'edcrfv', 6, 1, 2)# sxc-evaluation-system-next
-
-```
-
-
 ## Getting Started
 
 ```bash
