@@ -26,19 +26,31 @@ export default function HRPage() {
     <div className="min-h-screen bg-[#cdcdcd] flex flex-col">
       {/* HEADER */}
       <header className="bg-gradient-to-b from-[#031b3e] to-[#0c326a] px-6 py-4 flex items-center justify-between">
+      
+        {/* LEFT SIDE */}
         <div className="flex items-center gap-4">
           <Image
             src="/grandlogo-putih-1.png"
             alt="logo"
             width={120}
             height={60}
+            className="object-contain"
           />
           <h1 className="text-white font-bold text-lg md:text-2xl">
             Performance Appraisal
           </h1>
         </div>
 
-        <button className="text-white">⎋</button>
+        {/* RIGHT SIDE (LOGOUT BUTTON) */}
+        <button className="p-2 hover:bg-white/10 rounded transition">
+          <Image
+            src="/logout.svg"
+            alt="logout"
+            width={24}
+            height={24}
+          />
+        </button>
+
       </header>
 
       {/* MAIN */}

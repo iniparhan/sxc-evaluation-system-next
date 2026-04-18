@@ -152,7 +152,12 @@ function UpToBottomFormContent() {
           className="text-white text-2xl"
           title="Logout"
         >
-          ⎋
+          <Image
+          src="/logout.svg"
+          alt="logout"
+          width={24}
+          height={24}
+        />
         </button>
       </header>
 
