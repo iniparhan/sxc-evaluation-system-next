@@ -6,18 +6,12 @@ import Image from "next/image";
 import StarRating from "@/components/StarRating";
 import { getCurrentUser } from "@/services/authService";
 import {
-  clearEvaluationDraft,
-  getEvaluationDraftKey,
-  readEvaluationDraft,
-  writeEvaluationDraft,
-} from "@/lib/evaluationDraft";
-import { 
-  getOrCreateEvaluation, 
-  getEvaluationDetail, 
-  saveScores, 
+  getOrCreateEvaluation,
+  getEvaluationDetail,
+  saveScores,
   submitEvaluation,
-  KPIIndicator, 
-  EvaluationScore 
+  KPIIndicator,
+  EvaluationScore
 } from "@/services/evaluationService";
 
 function BottomToUpFormContent() {
@@ -33,12 +27,6 @@ function BottomToUpFormContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDraftRestored, setIsDraftRestored] = useState(false);
-
-  const draftKey = useMemo(() => {
-    if (!evaluationId || evaluateeId <= 0) return null;
-    return getEvaluationDraftKey("bottom_to_up", evaluateeId, evaluationId);
-  }, [evaluateeId, evaluationId]);
 
   const loadEvaluation = useCallback(async () => {
     try {
@@ -54,14 +42,10 @@ function BottomToUpFormContent() {
       if (evaluationIdFromUrl && evaluationIdFromUrl !== "null" && evaluationIdFromUrl !== "undefined") {
         const existingEvalId = parseInt(evaluationIdFromUrl);
         if (!isNaN(existingEvalId)) {
-          evaluation = await getOrCreateEvaluation(
-            currentUser.id,
-            evaluateeId
-          );
-          setEvaluationId(evaluation.id);
+          setEvaluationId(existingEvalId);
 
           // Load evaluation detail with KPIs
-          const detail = await getEvaluationDetail(evaluation.id, evaluateeId);
+          const detail = await getEvaluationDetail(existingEvalId, evaluateeId);
           setKpis(detail.kpis);
           
           // Load existing scores
@@ -74,46 +58,23 @@ function BottomToUpFormContent() {
             detail.scores.find((score) => score.notes?.trim())?.notes ||
             "";
 
-          const localDraft = readEvaluationDraft(
-            getEvaluationDraftKey("bottom_to_up", evaluateeId, evaluation.id)
-          );
-          if (localDraft) {
-            setScores({ ...scoresMap, ...localDraft.scores });
-            setFeedback(localDraft.feedback || existingFeedback);
-            setIsDraftRestored(true);
-          } else {
-            setScores(scoresMap);
-            setFeedback(existingFeedback);
-            setIsDraftRestored(false);
-          }
+          setScores(scoresMap);
+          setFeedback(existingFeedback);
           return;
         }
       }
 
       // No evaluation_id - create new
-      evaluation = await getOrCreateEvaluation(
-        currentUser.id,
-        evaluateeId
-      );
+      evaluation = await getOrCreateEvaluation(evaluateeId);
       setEvaluationId(evaluation.id);
 
       // Load evaluation detail with KPIs
       const detail = await getEvaluationDetail(evaluation.id, evaluateeId);
       setKpis(detail.kpis);
 
-      const localDraft = readEvaluationDraft(
-        getEvaluationDraftKey("bottom_to_up", evaluateeId, evaluation.id)
-      );
-      if (localDraft) {
-        setScores(localDraft.scores || {});
-        setFeedback(localDraft.feedback || "");
-        setIsDraftRestored(true);
-      } else {
-        // Initialize empty scores
-        setScores({});
-        setFeedback("");
-        setIsDraftRestored(false);
-      }
+      // Initialize empty scores for new evaluation
+      setScores({});
+      setFeedback("");
     } catch (error) {
       console.error("Error loading evaluation:", error);
       router.push("/user_page/officer_list");
@@ -126,60 +87,29 @@ function BottomToUpFormContent() {
     loadEvaluation();
   }, [loadEvaluation]);
 
-  useEffect(() => {
-    if (!draftKey || isLoading) return;
-
-    const timer = window.setTimeout(() => {
-      writeEvaluationDraft(draftKey, {
-        scores,
-        feedback,
-      });
-    }, 400);
-
-    return () => window.clearTimeout(timer);
-  }, [draftKey, feedback, isLoading, scores]);
-
   const handleScoreChange = (kpiId: number, score: number) => {
     setScores((prev) => ({ ...prev, [kpiId]: score }));
   };
 
-  const handleSave = async () => {
+  const handleSaveDraft = async () => {
     if (!evaluationId) return;
-
-    setIsSaving(true);
-    try {
-      const scoresArray = kpis.map((kpi) => ({
-        kpi_id: kpi.id,
-        score: scores[kpi.id] || 0,
-        notes: feedback.trim() || undefined,
-      }));
-
-      await saveScores(evaluationId, scoresArray);
-    } catch (error) {
-      console.error("Error saving scores:", error);
-      alert("Failed to save evaluation");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!evaluationId) return;
-
-    // Validate all KPIs have scores
-    const allFilled = kpis.every((kpi) => scores[kpi.id] && scores[kpi.id] > 0);
-    if (!allFilled) {
-      alert("Please fill in all KPI scores before submitting");
-      return;
-    }
 
     setIsSubmitting(true);
     try {
-      await handleSave();
+      // Convert scores object to ScoreInput array
+      const scoresArray = Object.entries(scores).map(([kpiId, score]) => ({
+        kpi_id: Number(kpiId),
+        score,
+        notes: feedback.trim() || undefined,
+      }));
+
+      // Save scores to database
+      await saveScores(evaluationId, scoresArray);
+
+      // Submit the evaluation
       await submitEvaluation(evaluationId);
-      if (draftKey) {
-        clearEvaluationDraft(draftKey);
-      }
+
+      // Navigate back to officer list
       router.push("/user_page/officer_list");
     } catch (error) {
       console.error("Error submitting evaluation:", error);
@@ -188,8 +118,6 @@ function BottomToUpFormContent() {
       setIsSubmitting(false);
     }
   };
-
-  const allFilled = kpis.every((kpi) => scores[kpi.id] && scores[kpi.id] > 0);
 
   if (isLoading) {
     return (
@@ -275,11 +203,10 @@ function BottomToUpFormContent() {
               placeholder="Write overall feedback for this officer (optional)"
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md resize-none h-28 focus:outline-none focus:ring-2 focus:ring-[#083577]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md resize-none h-28 focus:outline-none focus:ring-2 focus:ring-[#083577] text-[#083577]"
             />
             <p className="text-xs text-gray-500 mt-2">
-              Draft tersimpan otomatis di browser.
-              {isDraftRestored ? " Draft lokal sebelumnya sudah dipulihkan." : ""}
+              Data akan disimpan ke database saat submit.
             </p>
           </div>
 
@@ -290,19 +217,13 @@ function BottomToUpFormContent() {
             >
               Back
             </button>
+            
             <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex-1 py-3 rounded-xl border-2 border-[#083577] bg-[#083577]/10 text-[#083577] font-bold hover:bg-[#083577]/20 transition disabled:opacity-50"
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!allFilled || isSubmitting}
+              onClick={handleSaveDraft}
+              disabled={isSubmitting || !evaluationId}
               className="flex-1 py-3 rounded-xl bg-[#083577] text-white font-bold hover:bg-[#062a5e] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? "Submitting..." : "Submit"}
+              {isSubmitting ? "Saving draft..." : "Submit"}
             </button>
           </div>
         </div>

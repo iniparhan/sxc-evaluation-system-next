@@ -7,6 +7,7 @@ interface EvaluateeCardProps {
   division: string;
   subDivision: string;
   isSubmitted: boolean;
+  hasDraft?: boolean;
   evaluationId: number | null;
   onEvaluate: (evaluateeId: number, evaluationId: number | null) => void;
 }
@@ -18,6 +19,7 @@ export default function EvaluateeCard({
   division,
   subDivision,
   isSubmitted,
+  hasDraft,
   evaluationId,
   onEvaluate,
 }: EvaluateeCardProps) {
@@ -59,6 +61,11 @@ export default function EvaluateeCard({
           <p className="text-sm text-[#0b2f63]">{role}</p>
           <p className="text-sm text-[#0b2f63]">{subDivision}</p>
           <p className="text-sm font-bold text-[#0b2f63]">{division}</p>
+          {hasDraft && !isSubmitted && (
+            <span className="inline-block mt-2 px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+              Draft saved
+            </span>
+          )}
         </div>
       </div>
 

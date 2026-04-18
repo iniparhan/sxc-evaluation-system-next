@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import EvaluateeCard from "@/components/EvaluateeCard";
 import { getCurrentUser, UserSession } from "@/services/authService";
-import { getEvaluatees, getCompletionStatus } from "@/services/evaluationService";
+import { getEvaluatees, getCompletionStatus, saveScores, submitEvaluation } from "@/services/evaluationService";
 import { Evaluatee, CompletionStatus } from "@/services/evaluationService";
 
 export default function OfficerListPage() {
@@ -13,6 +13,7 @@ export default function OfficerListPage() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [evaluatees, setEvaluatees] = useState<Evaluatee[]>([]);
   const [completionStatus, setCompletionStatus] = useState<CompletionStatus | null>(null);
+  const [isSubmittingFinal, setIsSubmittingFinal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -43,10 +44,30 @@ export default function OfficerListPage() {
   }, [loadData]);
 
   useEffect(() => {
+    // Reload data when page becomes visible (e.g., when navigating back from form)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loadData]);
+
+  useEffect(() => {
     router.prefetch("/user_page/form_penilaian/up_to_bottom");
     router.prefetch("/user_page/form_penilaian/bottom_to_up");
     router.prefetch("/user_page/all_officer_done");
-  }, [router]);
+
+    evaluatees.forEach((evaluatee) => {
+      const formPath = evaluatee.role_id && user?.role_id && user.role_id > evaluatee.role_id
+        ? "/user_page/form_penilaian/bottom_to_up"
+        : "/user_page/form_penilaian/up_to_bottom";
+      const query = `?evaluatee_id=${evaluatee.id}${evaluatee.evaluation_id ? `&evaluation_id=${evaluatee.evaluation_id}` : ""}`;
+      router.prefetch(`${formPath}${query}`);
+    });
+  }, [router, evaluatees, user]);
 
   const handleEvaluate = (evaluateeId: number, evaluationId: number | null) => {
     // Determine if evaluating superior or subordinate
@@ -69,6 +90,23 @@ export default function OfficerListPage() {
     } else {
       // New evaluation - no evaluation_id needed, will be created
       router.push(`${formPath}?evaluatee_id=${evaluateeId}`);
+    }
+  };
+
+  const canSubmitFinal = evaluatees.length > 0 && evaluatees.every((evaluatee) => evaluatee.is_submitted);
+
+  const handleFinalSubmit = async () => {
+    if (!canSubmitFinal) return;
+
+    setIsSubmittingFinal(true);
+    try {
+      // All evaluations are already submitted individually, just navigate to thank you page
+      router.push("/user_page/thank_you_page");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setIsSubmittingFinal(false);
     }
   };
 
@@ -151,6 +189,7 @@ export default function OfficerListPage() {
                   division={evaluatee.division_name || "No Division"}
                   subDivision={evaluatee.sub_division_name || "-"}
                   isSubmitted={evaluatee.is_submitted}
+                  hasDraft={false}
                   evaluationId={evaluatee.evaluation_id}
                   onEvaluate={handleEvaluate}
                 />
@@ -158,14 +197,17 @@ export default function OfficerListPage() {
             </div>
           )}
 
-          {/* Submit Final Button */}
-          {completionStatus?.is_all_complete && (
-            <button
-              onClick={() => router.push("/user_page/all_officer_done")}
-              className="w-full mt-6 py-4 rounded-xl bg-[#083577] text-white text-lg font-bold hover:bg-[#062a5e] transition"
-            >
-              Submit Final
-            </button>
+          {(canSubmitFinal || completionStatus?.is_all_complete) && (
+            <div className="space-y-4">
+              <div className="w-full mt-6 py-4 rounded-xl text-[#083577] text-lg font-bold text-center">
+                All officers have been evaluated.
+              </div>
+              {!completionStatus?.is_all_complete && (
+                <p className="text-sm text-gray-600">
+                  All evaluations have been submitted.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </main>

@@ -4,9 +4,9 @@ import { getSession, getActivePeriod } from "@/lib/session";
 
 /**
  * POST /api/evaluations
- * Get or create an evaluation record
+ * Get or create an evaluation record for the current session user.
  *
- * Body: { evaluator_id, evaluatee_id, period_id? }
+ * Body: { evaluatee_id, period_id? }
  */
 export async function POST(req: Request) {
   try {
@@ -16,20 +16,65 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { evaluator_id, evaluatee_id, period_id } = body;
+    const evaluatee_id = body.evaluatee_id;
+    const period_id = body.period_id;
 
-    if (!evaluator_id || !evaluatee_id) {
+    if (!evaluatee_id) {
       return NextResponse.json(
         { message: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // No self-evaluation check
-    if (evaluator_id === evaluatee_id) {
+    if (evaluatee_id === session.id) {
       return NextResponse.json(
         { message: "Cannot evaluate oneself" },
         { status: 400 }
+      );
+    }
+
+    const evaluatee = await prisma.members.findUnique({
+      where: { id: evaluatee_id },
+    });
+
+    if (!evaluatee || !evaluatee.role_id) {
+      return NextResponse.json(
+        { message: "Evaluatee not found or has invalid role" },
+        { status: 404 }
+      );
+    }
+
+    if (!session.role_id) {
+      return NextResponse.json(
+        { message: "Invalid evaluator session" },
+        { status: 400 }
+      );
+    }
+
+    const policies = await prisma.evaluation_policies.findMany({
+      where: {
+        evaluator_role_id: session.role_id,
+        evaluatee_role_id: evaluatee.role_id,
+        is_active: true,
+      },
+    });
+
+    const isAuthorized = policies.some((policy) => {
+      if (policy.division_scope === "SAME_DIVISION") {
+        return session.division_id && session.division_id === evaluatee.division_id;
+      }
+
+      if (policy.division_scope === "SAME_SUBDIVISION") {
+        return session.sub_division_id && session.sub_division_id === evaluatee.sub_division_id;
+      }
+
+      return true;
+    });
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { message: "Unauthorized to evaluate this user" },
+        { status: 403 }
       );
     }
 
@@ -40,7 +85,7 @@ export async function POST(req: Request) {
     let evaluation = await prisma.evaluations.findUnique({
       where: {
         evaluator_id_evaluatee_id_period_id: {
-          evaluator_id,
+          evaluator_id: session.id,
           evaluatee_id,
           period_id: periodId || undefined,
         },
@@ -56,7 +101,7 @@ export async function POST(req: Request) {
     try {
       evaluation = await prisma.evaluations.create({
         data: {
-          evaluator_id,
+          evaluator_id: session.id,
           evaluatee_id,
           period_id: periodId || undefined,
         },
@@ -65,14 +110,14 @@ export async function POST(req: Request) {
       // If unique constraint violation, fetch the existing record
       if (error.code === "P2002") {
         evaluation = await prisma.evaluations.findUnique({
-          where: {
-            evaluator_id_evaluatee_id_period_id: {
-              evaluator_id,
-              evaluatee_id,
-              period_id: periodId || undefined,
-            },
+        where: {
+          evaluator_id_evaluatee_id_period_id: {
+            evaluator_id: session.id,
+            evaluatee_id,
+            period_id: periodId || undefined,
           },
-        });
+        },
+      });
 
         if (!evaluation) {
           throw error;

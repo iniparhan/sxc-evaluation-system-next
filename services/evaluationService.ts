@@ -77,16 +77,35 @@ export interface CompletionStatus {
 }
 
 /**
+ * 🔥 Helper untuk handle response (BIAR GAK BLIND ERROR)
+ */
+async function handleResponse(res: Response) {
+  const text = await res.text();
+
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { message: text };
+  }
+
+  if (!res.ok) {
+    console.error("API ERROR:", res.status, data);
+    throw new Error(data.message || `Error ${res.status}`);
+  }
+
+  return data;
+}
+
+/**
  * Get list of evaluatees for the current evaluator
  */
 export async function getEvaluatees(evaluatorId: number): Promise<Evaluatee[]> {
-  const res = await fetch(`/api/evaluatees?evaluator_id=${evaluatorId}`);
+  const res = await fetch(`/api/evaluatees?evaluator_id=${evaluatorId}`, {
+    credentials: "include",
+  });
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch evaluatees");
-  }
-
-  const data = await res.json();
+  const data = await handleResponse(res);
   return data.evaluatees;
 }
 
@@ -94,21 +113,20 @@ export async function getEvaluatees(evaluatorId: number): Promise<Evaluatee[]> {
  * Get or create an evaluation record
  */
 export async function getOrCreateEvaluation(
-  evaluatorId: number,
   evaluateeId: number,
   periodId?: number
 ): Promise<Evaluation> {
   const res = await fetch("/api/evaluations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ evaluator_id: evaluatorId, evaluatee_id: evaluateeId, period_id: periodId }),
+    credentials: "include", // 🔥 FIX AUTH
+    body: JSON.stringify({
+      evaluatee_id: evaluateeId,
+      period_id: periodId,
+    }),
   });
 
-  if (!res.ok) {
-    throw new Error("Failed to get/create evaluation");
-  }
-
-  const data = await res.json();
+  const data = await handleResponse(res);
   return data.evaluation;
 }
 
@@ -119,13 +137,14 @@ export async function getEvaluationDetail(
   evaluationId: number,
   evaluateeId: number
 ): Promise<EvaluationDetail> {
-  const res = await fetch(`/api/evaluations/${evaluationId}?evaluatee_id=${evaluateeId}`);
+  const res = await fetch(
+    `/api/evaluations/${evaluationId}?evaluatee_id=${evaluateeId}`,
+    {
+      credentials: "include",
+    }
+  );
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch evaluation detail");
-  }
-
-  return res.json();
+  return handleResponse(res);
 }
 
 /**
@@ -138,12 +157,11 @@ export async function saveScores(
   const res = await fetch(`/api/evaluations/${evaluationId}/scores`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ scores }),
   });
 
-  if (!res.ok) {
-    throw new Error("Failed to save scores");
-  }
+  await handleResponse(res);
 }
 
 /**
@@ -152,22 +170,24 @@ export async function saveScores(
 export async function submitEvaluation(evaluationId: number): Promise<void> {
   const res = await fetch(`/api/evaluations/${evaluationId}/submit`, {
     method: "POST",
+    credentials: "include",
   });
 
-  if (!res.ok) {
-    throw new Error("Failed to submit evaluation");
-  }
+  await handleResponse(res);
 }
 
 /**
  * Check completion status for all evaluatees
  */
-export async function getCompletionStatus(evaluatorId: number): Promise<CompletionStatus> {
-  const res = await fetch(`/api/evaluations/status?evaluator_id=${evaluatorId}`);
+export async function getCompletionStatus(
+  evaluatorId: number
+): Promise<CompletionStatus> {
+  const res = await fetch(
+    `/api/evaluations/status?evaluator_id=${evaluatorId}`,
+    {
+      credentials: "include",
+    }
+  );
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch completion status");
-  }
-
-  return res.json();
+  return handleResponse(res);
 }

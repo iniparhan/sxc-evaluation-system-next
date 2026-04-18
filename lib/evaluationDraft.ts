@@ -4,6 +4,13 @@ export interface EvaluationDraft {
   updatedAt: number;
 }
 
+export interface EvaluationDraftEntry {
+  formType: "up_to_bottom" | "bottom_to_up";
+  evaluateeId: number;
+  evaluationId: number;
+  draft: EvaluationDraft;
+}
+
 const DRAFT_PREFIX = "sxc-evaluation-draft";
 
 export function getEvaluationDraftKey(
@@ -12,6 +19,38 @@ export function getEvaluationDraftKey(
   evaluationId: number
 ): string {
   return `${DRAFT_PREFIX}:${formType}:${evaluateeId}:${evaluationId}`;
+}
+
+export function getAllEvaluationDrafts(): EvaluationDraftEntry[] {
+  if (typeof window === "undefined") return [];
+
+  const drafts: EvaluationDraftEntry[] = [];
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    const key = window.localStorage.key(i);
+    if (!key || !key.startsWith(`${DRAFT_PREFIX}:`)) continue;
+
+    const parts = key.split(":");
+    if (parts.length !== 4) continue;
+
+    const [, formType, rawEvaluateeId, rawEvaluationId] = parts;
+    if (formType !== "up_to_bottom" && formType !== "bottom_to_up") continue;
+
+    const evaluateeId = Number.parseInt(rawEvaluateeId, 10);
+    const evaluationId = Number.parseInt(rawEvaluationId, 10);
+    if (!Number.isInteger(evaluateeId) || !Number.isInteger(evaluationId)) continue;
+
+    const draft = readEvaluationDraft(key);
+    if (!draft) continue;
+
+    drafts.push({
+      formType,
+      evaluateeId,
+      evaluationId,
+      draft,
+    });
+  }
+
+  return drafts;
 }
 
 export function readEvaluationDraft(key: string): EvaluationDraft | null {
