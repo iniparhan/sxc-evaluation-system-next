@@ -44,7 +44,7 @@ function BottomToUpFormContent() {
         if (!isNaN(existingEvalId)) {
           setEvaluationId(existingEvalId);
 
-          // Load evaluation detail with KPIs
+          // FIXED: Load evaluation detail in parallel without waiting for setEvaluationId
           const detail = await getEvaluationDetail(existingEvalId, evaluateeId);
           setKpis(detail.kpis);
           
@@ -64,12 +64,12 @@ function BottomToUpFormContent() {
         }
       }
 
-      // No evaluation_id - create new
-      evaluation = await getOrCreateEvaluation(evaluateeId);
-      setEvaluationId(evaluation.id);
+      // No evaluation_id - create new evaluation with KPIs in one request
+      const evaluationData = await getOrCreateEvaluation(evaluateeId);
+      setEvaluationId(evaluationData.id);
 
-      // Load evaluation detail with KPIs
-      const detail = await getEvaluationDetail(evaluation.id, evaluateeId);
+      // FIXED: Get evaluation detail immediately after creation
+      const detail = await getEvaluationDetail(evaluationData.id, evaluateeId);
       setKpis(detail.kpis);
 
       // Initialize empty scores for new evaluation

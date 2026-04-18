@@ -56,26 +56,26 @@ export async function GET(req: Request) {
         take: 5,
       });
     } else {
-      // Global KPIs (5) + division-specific KPIs
-      const globalKpis = await prisma.kpis.findMany({
-        where: {
-          division_id: null,
-          is_active: true,
-        },
-        orderBy: { id: "asc" },
-        take: 5,
-      });
-
-      const divisionKpis =
+      // FIXED: Parallel queries using Promise.all instead of sequential await
+      const [globalKpis, divisionKpis] = await Promise.all([
+        prisma.kpis.findMany({
+          where: {
+            division_id: null,
+            is_active: true,
+          },
+          orderBy: { id: "asc" },
+          take: 5,
+        }),
         evaluatee.division_id !== null
-          ? await prisma.kpis.findMany({
+          ? prisma.kpis.findMany({
               where: {
                 division_id: evaluatee.division_id,
                 is_active: true,
               },
               orderBy: { id: "asc" },
             })
-          : [];
+          : Promise.resolve([]),
+      ]);
 
       kpis = [...globalKpis, ...divisionKpis];
     }

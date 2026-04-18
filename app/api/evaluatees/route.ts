@@ -48,44 +48,65 @@ export async function GET(req: Request) {
       return NextResponse.json({ evaluatees: [] });
     }
 
-    // For each policy, find evaluatees based on scope
+    // Build OR conditions for all policies (batch query instead of N+1)
     type MemberWithRelations = Prisma.membersGetPayload<{
       include: { roles: true; divisions: true; sub_divisions: true };
     }>;
-    const allEvaluatees: Array<{ member: MemberWithRelations; policy: evaluation_policies }> = [];
+
+    const whereOrConditions: any[] = [];
 
     for (const policy of policies) {
-      // Build where clause based on scope
-      const whereClause: any = {
-        role_id: policy.evaluatee_role_id,
-        id: { not: evaluatorId }, // No self-evaluation
-      };
+      const condition: any = { role_id: policy.evaluatee_role_id };
 
       // Add division/subdivision filters based on scope
       if (policy.division_scope === "SAME_DIVISION") {
-        whereClause.division_id = evaluatorDivisionId;
+        condition.division_id = evaluatorDivisionId;
       } else if (policy.division_scope === "SAME_SUBDIVISION") {
-        whereClause.sub_division_id = evaluatorSubDivisionId;
+        condition.sub_division_id = evaluatorSubDivisionId;
       }
       // GLOBAL scope doesn't need additional filters
 
-      // Find members matching this policy
-      const members = await prisma.members.findMany({
-        where: whereClause,
-        include: {
-          roles: true,
-          divisions: true,
-          sub_divisions: true,
-        },
-      });
+      whereOrConditions.push(condition);
+    }
 
-      // Add these members to the list (avoid duplicates)
-      for (const member of members) {
-        if (!allEvaluatees.find((e) => e.member.id === member.id)) {
-          allEvaluatees.push({
-            member,
-            policy,
-          });
+    // ✅ FIXED: Single batch query instead of loop with N queries
+    const allMembers = await prisma.members.findMany({
+      where: {
+        id: { not: evaluatorId }, // No self-evaluation
+        OR: whereOrConditions,
+      },
+      include: {
+        roles: true,
+        divisions: true,
+        sub_divisions: true,
+      },
+    });
+
+    // Map members to policies with deduplication
+    const allEvaluatees: Array<{ member: MemberWithRelations; policy: evaluation_policies }> = [];
+    const seenMemberIds = new Set<number>();
+
+    for (const member of allMembers) {
+      // Find matching policies for this member
+      for (const policy of policies) {
+        if (seenMemberIds.has(member.id) && policy === policies[0]) {
+          // Skip if already added for first policy
+          continue;
+        }
+
+        const roleMatches = member.role_id === policy.evaluatee_role_id;
+        let scopeMatches = true;
+
+        if (policy.division_scope === "SAME_DIVISION") {
+          scopeMatches = member.division_id === evaluatorDivisionId;
+        } else if (policy.division_scope === "SAME_SUBDIVISION") {
+          scopeMatches = member.sub_division_id === evaluatorSubDivisionId;
+        }
+
+        if (roleMatches && scopeMatches) {
+          allEvaluatees.push({ member, policy });
+          seenMemberIds.add(member.id);
+          break; // Use first matching policy
         }
       }
     }

@@ -44,7 +44,7 @@ function UpToBottomFormContent() {
         if (!isNaN(existingEvalId)) {
           setEvaluationId(existingEvalId);
 
-          // Load evaluation detail with KPIs
+          // FIXED: Load evaluation detail in parallel without waiting for setEvaluationId
           const detail = await getEvaluationDetail(existingEvalId, evaluateeId);
           setKpis(detail.kpis);
           

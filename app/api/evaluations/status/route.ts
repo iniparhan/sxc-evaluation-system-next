@@ -38,27 +38,33 @@ export async function GET(req: Request) {
       },
     });
 
-    // Count total evaluatees based on policies
-    let totalEvaluatees = 0;
+    // FIXED: Batch query instead of N+1 COUNT queries
+    const whereOrConditions: any[] = [];
 
     for (const policy of policies) {
-      const whereClause: any = {
-        role_id: policy.evaluatee_role_id,
-        id: { not: evaluatorId },
-      };
+      const condition: any = { role_id: policy.evaluatee_role_id };
 
       if (policy.division_scope === "SAME_DIVISION") {
-        whereClause.division_id = evaluator.division_id;
+        condition.division_id = evaluator.division_id;
       } else if (policy.division_scope === "SAME_SUBDIVISION") {
-        whereClause.sub_division_id = evaluator.sub_division_id;
+        condition.sub_division_id = evaluator.sub_division_id;
       }
 
-      const count = await prisma.members.count({
-        where: whereClause,
-      });
-
-      totalEvaluatees += count;
+      whereOrConditions.push(condition);
     }
+
+    // Single query to get all evaluatees
+    const allEvaluatees = await prisma.members.findMany({
+      where: {
+        id: { not: evaluatorId },
+        OR: whereOrConditions,
+      },
+      select: { id: true }, // Only need IDs for deduplication
+    });
+
+    // Deduplicate with Set
+    const uniqueEvaluateeIds = new Set(allEvaluatees.map((m) => m.id));
+    const totalEvaluatees = uniqueEvaluateeIds.size;
 
     // Get active period
     const activePeriod = await prisma.evaluation_periods.findFirst({
